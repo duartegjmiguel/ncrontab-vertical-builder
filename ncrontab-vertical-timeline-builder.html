@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NCRONTAB Timeline Builder</title>
+<style>
+    body {
+        font-family: 'Segoe UI', sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #f4f6f8;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    h1 {
+        margin: 30px 0;
+        font-size: 28px;
+        color: #333;
+    }
+
+    .form-container {
+        width: 90%;
+        max-width: 500px;
+        background: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+
+    .form-container input, .form-container textarea {
+        width: 100%;
+        padding: 10px;
+        margin: 6px 0;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+    }
+
+    textarea {
+        resize: vertical;
+        min-height: 70px;
+    }
+
+    .color-picker-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 10px 0;
+    }
+
+    .color-picker-container label {
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    #color {
+        width: 40px;
+        height: 40px;
+        cursor: pointer;
+        border: none;
+        padding: 0;
+    }
+
+    .shuffle-btn {
+        background: #ff9800;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+
+    .shuffle-btn:hover {
+        background: #e68900;
+    }
+
+    .button-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .button-group button {
+        flex: 1;
+        padding: 8px;
+        font-size: 14px;
+        border: none;
+        border-radius: 6px;
+        color: #fff;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+
+    .add-btn { background: #0078d7; }
+    .add-btn:hover { background: #005fa3; }
+
+    .bulk-btn { background: #6f42c1; }
+    .bulk-btn:hover { background: #59359c; }
+
+    .copy-btn { background: #28a745; }
+    .copy-btn:hover { background: #1e7e34; }
+
+    .clear-btn { background: #dc3545; }
+    .clear-btn:hover { background: #a71d2a; }
+
+    .timeline {
+        position: relative;
+        width: 80%;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px 0;
+    }
+
+    .timeline::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        width: 4px;
+        background: #ccc;
+        transform: translateX(-50%);
+    }
+
+    .timeline-item {
+        position: relative;
+        width: 45%;
+        padding: 15px;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        margin: 20px 0;
+        animation: fadeIn 0.5s ease;
+    }
+
+    .timeline-item:nth-child(odd) { left: 0; }
+    .timeline-item:nth-child(even) { left: 55%; }
+
+    .timeline-item::before {
+        content: "";
+        position: absolute;
+        top: 20px;
+        width: 20px;
+        height: 20px;
+        background: #0078d7;
+        border-radius: 50%;
+        border: 4px solid #fff;
+        box-shadow: 0 0 0 4px #ccc;
+    }
+
+    .timeline-item:nth-child(odd)::before { right: -40px; }
+    .timeline-item:nth-child(even)::before { left: -40px; }
+
+    .time-label {
+        font-size: 16px;
+        font-weight: bold;
+        color: #333;
+    }
+
+    .cron-expression {
+        font-size: 12px;
+        color: #777;
+        margin-bottom: 8px;
+    }
+
+    .balloon {
+        display: inline-block;
+        padding: 8px 12px;
+        border-radius: 8px;
+        color: #fff;
+        font-weight: bold;
+        font-size: 14px;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+</head>
+<body>
+
+<h1>NCRONTAB Timeline Builder</h1>
+
+<div class="form-container">
+    <input type="text" id="cron" placeholder="NCRONTAB Expression (e.g., 0 0 2 * * 4)">
+    <input type="text" id="label" placeholder="Label (e.g., Salta user import)">
+
+    <div class="color-picker-container">
+        <label for="color">Pick a Color (optional):</label>
+        <input type="color" id="color" value="#000000">
+        <button class="shuffle-btn" onclick="shuffleColors()">Shuffle Colors</button>
+    </div>
+
+    <div class="button-group">
+        <button class="add-btn" onclick="addItemFromForm()">Add</button>
+        <button class="bulk-btn" onclick="bulkAdd()">Bulk Add</button>
+        <button class="copy-btn" onclick="copyAll()">Copy All</button>
+        <button class="clear-btn" onclick="clearTimeline()">Clear</button>
+    </div>
+
+    <textarea id="bulkInput" placeholder="Paste multiple lines like:
+0 0 2 * * 4 -> Salta user import
+0 0 5 * * * -> Unive user import"></textarea>
+</div>
+
+<div class="timeline" id="timeline"></div>
+
+<script>
+    const items = [];
+
+    function randomColor() {
+        const hue = Math.floor(Math.random() * 360);
+        const saturation = 70 + Math.random() * 20;
+        const lightness = 45 + Math.random() * 10;
+        return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    }
+
+    function parseCronParts(cron) {
+        const parts = cron.split(' ');
+        if (parts.length < 6) return null;
+
+        return {
+            second: parseInt(parts[0]) || 0,
+            minute: parseInt(parts[1]) || 0,
+            hour: parseInt(parts[2]) || 0,
+            dayOfWeek: parts[5] === '*' ? 7 : parseInt(parts[5])
+        };
+    }
+
+    function sortItems() {
+        items.sort((a, b) => {
+            if (a.dayOfWeek !== b.dayOfWeek) return a.dayOfWeek - b.dayOfWeek;
+            if (a.hour !== b.hour) return a.hour - b.hour;
+            if (a.minute !== b.minute) return a.minute - b.minute;
+            return a.second - b.second;
+        });
+    }
+
+    function renderTimeline() {
+        const container = document.getElementById('timeline');
+        container.innerHTML = '';
+        items.forEach(i => {
+            const item = document.createElement('div');
+            item.className = 'timeline-item';
+
+            const timeLabel = document.createElement('div');
+            timeLabel.className = 'time-label';
+            timeLabel.textContent = `${i.readableDay} at ${i.hour.toString().padStart(2,'0')}:${i.minute.toString().padStart(2,'0')}:${i.second.toString().padStart(2,'0')}`;
+
+            const cronLabel = document.createElement('div');
+            cronLabel.className = 'cron-expression';
+            cronLabel.textContent = i.cron;
+
+            const balloon = document.createElement('div');
+            balloon.className = 'balloon';
+            balloon.style.backgroundColor = i.color;
+            balloon.textContent = i.label;
+
+            item.appendChild(timeLabel);
+            item.appendChild(cronLabel);
+            item.appendChild(balloon);
+            container.appendChild(item);
+        });
+
+        localStorage.setItem('timelineItems', JSON.stringify(items));
+    }
+
+    function addItem(cron, label, color) {
+        const parts = parseCronParts(cron);
+        if (!parts) {
+            alert('Invalid NCRONTAB format.');
+            return;
+        }
+
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Every day'];
+        const readableDay = days[parts.dayOfWeek];
+
+        const finalColor = (color && color !== '#000000') ? color : randomColor();
+
+        items.push({
+            cron,
+            label,
+            color: finalColor,
+            ...parts,
+            readableDay
+        });
+
+        sortItems();
+        renderTimeline();
+    }
+
+    function addItemFromForm() {
+        const cron = document.getElementById('cron').value.trim();
+        const label = document.getElementById('label').value.trim();
+        const color = document.getElementById('color').value;
+
+        if (!cron || !label) {
+            alert('Please fill in both fields.');
+            return;
+        }
+
+        addItem(cron, label, color);
+
+        document.getElementById('cron').value = '';
+        document.getElementById('label').value = '';
+        document.getElementById('color').value = '#000000';
+    }
+
+    function bulkAdd() {
+        const text = document.getElementById('bulkInput').value.trim();
+        if (!text) {
+            alert('Please paste some cron jobs.');
+            return;
+        }
+
+        const lines = text.split('\n');
+        lines.forEach(line => {
+            const parts = line.split('->');
+            if (parts.length === 2) {
+                const cron = parts[0].trim();
+                const label = parts[1].trim();
+                addItem(cron, label, null);
+            }
+        });
+
+        document.getElementById('bulkInput').value = '';
+    }
+
+    function copyAll() {
+        if (items.length === 0) {
+            alert('No items to copy.');
+            return;
+        }
+
+        const text = items.map(i => `${i.cron} -> ${i.label}`).join('\n');
+        navigator.clipboard.writeText(text).then(() => {
+            alert('All cron jobs copied to clipboard!');
+        });
+    }
+
+    function clearTimeline() {
+        if (!confirm('Are you sure you want to clear the timeline?')) return;
+        items.length = 0;
+        document.getElementById('timeline').innerHTML = '';
+        localStorage.removeItem('timelineItems');
+    }
+
+    function shuffleColors() {
+        if (items.length === 0) {
+            alert('No items to shuffle.');
+            return;
+        }
+        items.forEach(i => {
+            i.color = randomColor();
+        });
+        renderTimeline();
+    }
+
+    window.onload = () => {
+        const saved = localStorage.getItem('timelineItems');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            parsed.forEach(i => items.push(i));
+            sortItems();
+            renderTimeline();
+        }
+    };
+</script>
+
+</body>
+</html>
